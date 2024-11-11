@@ -1,0 +1,5 @@
+%YAML:1.0
+---
+MaxCorners: 100
+QualityLevel: 2
+MinDistance: 7
