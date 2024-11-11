@@ -10,11 +10,8 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
 find_package(Eigen3 3.3 REQUIRED)
 find_package(OpenCV 4.5.1 REQUIRED)
 
-foreach(dep math;random;gui;maps)
-    if (NOT TARGET mrpt::${dep})
-        find_package(mrpt-${dep} REQUIRED)
-    endif()
-endforeach()
+
+
 include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories( EIGEN3_INCLUDE_DIR )
 
@@ -39,10 +36,6 @@ target_link_libraries(diplom dl)
 target_link_libraries(diplom ${OpenCV_LIBS} )
 target_link_libraries (diplom Eigen3::Eigen)
 
-
-foreach(dep math;random;gui;maps)
-    target_link_libraries(diplom mrpt::${dep})
-endforeach()
 
 
 
