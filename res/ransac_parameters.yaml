@@ -14,7 +14,7 @@ points:
       - -815.
       - 618.
 width: 137
-heigth: 690
+height: 477
 maxTrials: 226
 distanceThreshold: 9
 minInliers: 169
