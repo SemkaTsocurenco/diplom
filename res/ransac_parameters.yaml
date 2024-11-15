@@ -1,0 +1,20 @@
+%YAML:1.0
+---
+points:
+   -
+      - 361.
+      - 312.
+   -
+      - 599.
+      - 312.
+   -
+      - 1775.
+      - 618.
+   -
+      - -815.
+      - 618.
+width: 137
+heigth: 690
+maxTrials: 226
+distanceThreshold: 9
+minInliers: 169
