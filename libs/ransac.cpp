@@ -14,7 +14,7 @@ Ransac::Ransac(const string& videoPath, const string& configPath)
         exit(-1);
     }
 
-    cout<<"aaa\n";
+
     if (!loadConfig()) {
         points = {
             Point2f(100, 100),
@@ -24,12 +24,12 @@ Ransac::Ransac(const string& videoPath, const string& configPath)
         };
     }
 
-cout<<"aaa1\n";
+
     namedWindow("Birdview", WINDOW_AUTOSIZE);
-    cout<<"aaa2\n";
+
 
     createTrackbars();
-    cout<<"aaa3\n";
+
 
 }
 
