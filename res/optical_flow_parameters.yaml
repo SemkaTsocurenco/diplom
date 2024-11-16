@@ -1,0 +1,8 @@
+%YAML:1.0
+---
+Flow_Threshold: 5
+maxCorners: 1928
+qualityLevel: 16
+minDistance: 39
+cannyThreshold1: 11
+cannyThreshold2: 179
