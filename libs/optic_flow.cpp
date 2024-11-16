@@ -1,11 +1,12 @@
 #include "../include/main.hpp"
 
-
 // Параметры
 int flow_threshold = 10;
-int maxCorners = 10;
+int maxCorners = 500;
 int qualityLevel = 10;
 int minDistance = 10;
+int cannyThreshold1 = 50;
+int cannyThreshold2 = 150;
 
 // Загрузка параметров из YAML файла
 void loadOpticalFlowParams(const std::string& filename) {
@@ -18,6 +19,8 @@ void loadOpticalFlowParams(const std::string& filename) {
     fs["maxCorners"] >> maxCorners;
     fs["qualityLevel"] >> qualityLevel;
     fs["minDistance"] >> minDistance;
+    fs["cannyThreshold1"] >> cannyThreshold1;
+    fs["cannyThreshold2"] >> cannyThreshold2;
     fs.release();
     std::cout << "Параметры оптического потока загружены." << std::endl;
 }
@@ -33,6 +36,8 @@ void saveOpticalFlowParams(const std::string& filename) {
     fs << "maxCorners" << maxCorners;
     fs << "qualityLevel" << qualityLevel;
     fs << "minDistance" << minDistance;
+    fs << "cannyThreshold1" << cannyThreshold1;
+    fs << "cannyThreshold2" << cannyThreshold2;
     fs.release();
     std::cout << "Параметры оптического потока сохранены." << std::endl;
 }
@@ -41,8 +46,7 @@ void saveOpticalFlowParams(const std::string& filename) {
 void on_trackbar(int, void*) {}
 
 // Метод для обнаружения дорожной разметки с использованием оптического потока
-void findLines(std::string vidname){
-
+void findLines(std::string vidname) {
     cv::VideoCapture cap("/home/tsokurenkosv/Downloads/video2.mp4");
 
     if (!cap.isOpened()) {
@@ -52,13 +56,15 @@ void findLines(std::string vidname){
 
     loadOpticalFlowParams("../res/optical_flow_parameters.yaml");
 
-    cv::Mat prevGray, gray, frame;
+    cv::Mat prevGray, gray, frame, edges;
     cap >> frame;
     if (frame.empty()) {
         std::cerr << "Ошибка: Не удалось захватить кадр!" << std::endl;
         return;
     }
 
+    // Фокусируемся на нижней части кадра
+    frame = frame(cv::Rect(0, frame.rows / 2, frame.cols, frame.rows / 2));
     cv::cvtColor(frame, prevGray, cv::COLOR_BGR2GRAY);
 
     cv::namedWindow("Optical Flow", cv::WINDOW_AUTOSIZE);
@@ -66,20 +72,28 @@ void findLines(std::string vidname){
     cv::createTrackbar("maxCorners", "Optical Flow", &maxCorners, 2000, on_trackbar);
     cv::createTrackbar("qualityLevel", "Optical Flow", &qualityLevel, 95, on_trackbar);
     cv::createTrackbar("minDistance", "Optical Flow", &minDistance, 300, on_trackbar);
+    cv::createTrackbar("Canny Thresh 1", "Optical Flow", &cannyThreshold1, 200, on_trackbar);
+    cv::createTrackbar("Canny Thresh 2", "Optical Flow", &cannyThreshold2, 300, on_trackbar);
 
     while (true) {
         cap >> frame;
         if (frame.empty()) break;
 
+        // Фокусируемся на нижней части кадра
+        frame = frame(cv::Rect(0, frame.rows / 2, frame.cols, frame.rows / 2));
         cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+
+        // Применяем фильтр Кэнни для выделения границ
+        cv::Canny(gray, edges, cannyThreshold1, cannyThreshold2);
 
         // Вычисление оптического потока
         std::vector<cv::Point2f> prevPoints, currPoints;
         std::vector<uchar> status;
         std::vector<float> err;
-        double qualityLevelDouble = static_cast<double> (qualityLevel+1);
-        // Инициализация точек для отслеживания
-        cv::goodFeaturesToTrack(prevGray, prevPoints, maxCorners, qualityLevelDouble/100, minDistance);
+        double qualityLevelDouble = static_cast<double>(qualityLevel + 1);
+
+        // Инициализация точек для отслеживания на выделенных границах
+        cv::goodFeaturesToTrack(edges, prevPoints, maxCorners, qualityLevelDouble / 100, minDistance);
         if (prevPoints.empty()) continue;
 
         // Оптический поток Лукаса-Канаде
@@ -97,7 +111,13 @@ void findLines(std::string vidname){
             }
         }
 
-        cv::imshow("Optical Flow", flowFrame);
+        // Объединение изображений (оптический поток и результат Кэнни)
+        cv::Mat combined;
+        cv::cvtColor(edges, edges, cv::COLOR_GRAY2BGR);  // Преобразование edges в цветное изображение
+        cv::hconcat(flowFrame, edges, combined);
+
+        // Отображение объединённого изображения
+        cv::imshow("Optical Flow", combined);
 
         if (cv::waitKey(30) == 'q') break;
 
@@ -108,3 +128,4 @@ void findLines(std::string vidname){
     cap.release();
     cv::destroyAllWindows();
 }
+
