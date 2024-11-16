@@ -1,120 +1,107 @@
 #include "../include/main.hpp"
 
-int maxCorners = 100;     // Максимальное количество углов для обнаружения
-double qualityLevel = 2; // Уровень качества для углов
-double minDistance = 7;  // Минимальное расстояние между углами
 
-// Функция для загрузки параметров оптического потока из YAML-файла
+// Параметры
+int flow_threshold = 10;
+int maxCorners = 10;
+int qualityLevel = 10;
+int minDistance = 10;
+
+// Загрузка параметров из YAML файла
 void loadOpticalFlowParams(const std::string& filename) {
-    std::cout << "Загрузка параметров оптического потока\n";
     cv::FileStorage fs(filename, cv::FileStorage::READ);
     if (!fs.isOpened()) {
-        std::cerr << "Ошибка: не удалось открыть файл " << filename << " для чтения." << std::endl;
+        std::cerr << "Ошибка: не удалось открыть файл " << filename << std::endl;
         return;
     }
-    fs["MaxCorners"] >> maxCorners;
-    fs["QualityLevel"] >> qualityLevel;
-    fs["MinDistance"] >> minDistance;
+    fs["Flow_Threshold"] >> flow_threshold;
+    fs["maxCorners"] >> maxCorners;
+    fs["qualityLevel"] >> qualityLevel;
+    fs["minDistance"] >> minDistance;
     fs.release();
-    std::cout << "Загрузка параметров оптического потока - завершена\n";
+    std::cout << "Параметры оптического потока загружены." << std::endl;
 }
 
-// Функция для сохранения параметров оптического потока в YAML-файл
+// Сохранение параметров в YAML файл
 void saveOpticalFlowParams(const std::string& filename) {
-    std::cout << "Сохранение параметров оптического потока\n";
     cv::FileStorage fs(filename, cv::FileStorage::WRITE);
     if (!fs.isOpened()) {
-        std::cerr << "Ошибка: не удалось открыть файл " << filename << " для записи." << std::endl;
+        std::cerr << "Ошибка: не удалось открыть файл " << filename << std::endl;
         return;
     }
-    fs << "MaxCorners" << maxCorners;
-    fs << "QualityLevel" << qualityLevel;
-    fs << "MinDistance" << minDistance;
+    fs << "Flow_Threshold" << flow_threshold;
+    fs << "maxCorners" << maxCorners;
+    fs << "qualityLevel" << qualityLevel;
+    fs << "minDistance" << minDistance;
     fs.release();
-    std::cout << "Сохранение параметров оптического потока - завершено\n";
+    std::cout << "Параметры оптического потока сохранены." << std::endl;
 }
 
-// Функция для обработки кадра с использованием оптического потока
-void processOpticalFlow(const cv::Mat& prevFrame, const cv::Mat& currFrame, cv::Mat& output) {
-    std::vector<cv::Point2f> prevPoints, currPoints;
-    std::vector<uchar> status;
-    std::vector<float> err;
-
-    // Обнаружение углов на предыдущем кадре
-    cv::goodFeaturesToTrack(prevFrame, prevPoints, maxCorners, qualityLevel, minDistance);
-
-    if (prevPoints.empty()) {
-        std::cerr << "Не удалось обнаружить интересные точки на кадре." << std::endl;
-        return;
-    } else {
-
-    // Вычисление оптического потока
-    cv::calcOpticalFlowPyrLK(prevFrame, currFrame, prevPoints, currPoints, status, err);
-    
-    output = currFrame.clone();
-    // Отрисовка обнаруженных точек движения
-    for (size_t i = 0; i < currPoints.size(); i++) {
-        if (status[i]) {
-            cv::line(output, prevPoints[i], currPoints[i], cv::Scalar(0, 255, 0), 2);
-            cv::circle(output, currPoints[i], 5, cv::Scalar(0, 0, 255), -1);
-        }
-    }
-    }
-}
-
-// Функция-обработчик для ползунков
+// Callback функция для трекбаров
 void on_trackbar(int, void*) {}
 
-// Основная функция поиска дорожной разметки с использованием оптического потока
-void findLines(std::string vidname) {
-    cv::Mat prevFrame, currFrame, grayPrev, grayCurr;
-    loadOpticalFlowParams("../res/optical_flow_parameters.yaml");
-    cv::VideoCapture cap(vidname);
+// Метод для обнаружения дорожной разметки с использованием оптического потока
+void findLines(std::string vidname){
+
+    cv::VideoCapture cap("/home/tsokurenkosv/Downloads/video2.mp4");
 
     if (!cap.isOpened()) {
-        std::cerr << "Ошибка: Не удалось открыть видео!" << std::endl;
+        std::cerr << "Ошибка: Не удалось открыть видеофайл!" << std::endl;
         return;
     }
 
-    // Захватываем первый кадр
-    cap >> prevFrame;
-    if (prevFrame.empty()) {
-        std::cerr << "Ошибка: Не удалось захватить первый кадр!" << std::endl;
+    loadOpticalFlowParams("../res/optical_flow_parameters.yaml");
+
+    cv::Mat prevGray, gray, frame;
+    cap >> frame;
+    if (frame.empty()) {
+        std::cerr << "Ошибка: Не удалось захватить кадр!" << std::endl;
         return;
     }
-    cv::cvtColor(prevFrame, grayPrev, cv::COLOR_BGR2GRAY);
+
+    cv::cvtColor(frame, prevGray, cv::COLOR_BGR2GRAY);
+
+    cv::namedWindow("Optical Flow", cv::WINDOW_AUTOSIZE);
+    cv::createTrackbar("Flow Threshold", "Optical Flow", &flow_threshold, 50, on_trackbar);
+    cv::createTrackbar("maxCorners", "Optical Flow", &maxCorners, 2000, on_trackbar);
+    cv::createTrackbar("qualityLevel", "Optical Flow", &qualityLevel, 95, on_trackbar);
+    cv::createTrackbar("minDistance", "Optical Flow", &minDistance, 300, on_trackbar);
 
     while (true) {
-        cap >> currFrame;
-        if (currFrame.empty()) {
-            std::cerr << "Ошибка: Не удалось захватить кадр!" << std::endl;
-            break;
+        cap >> frame;
+        if (frame.empty()) break;
+
+        cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+
+        // Вычисление оптического потока
+        std::vector<cv::Point2f> prevPoints, currPoints;
+        std::vector<uchar> status;
+        std::vector<float> err;
+        double qualityLevelDouble = static_cast<double> (qualityLevel+1);
+        // Инициализация точек для отслеживания
+        cv::goodFeaturesToTrack(prevGray, prevPoints, maxCorners, qualityLevelDouble/100, minDistance);
+        if (prevPoints.empty()) continue;
+
+        // Оптический поток Лукаса-Канаде
+        cv::calcOpticalFlowPyrLK(prevGray, gray, prevPoints, currPoints, status, err);
+
+        // Отображение потока
+        cv::Mat flowFrame = frame.clone();
+        for (size_t i = 0; i < currPoints.size(); i++) {
+            if (status[i]) {
+                double flow = cv::norm(currPoints[i] - prevPoints[i]);
+                if (flow > flow_threshold) {
+                    cv::line(flowFrame, prevPoints[i], currPoints[i], cv::Scalar(0, 255, 0), 2);
+                    cv::circle(flowFrame, currPoints[i], 3, cv::Scalar(0, 0, 255), -1);
+                }
+            }
         }
+
+        cv::imshow("Optical Flow", flowFrame);
 
         if (cv::waitKey(30) == 'q') break;
 
-        // Преобразование текущего кадра в оттенки серого
-        cv::cvtColor(currFrame, grayCurr, cv::COLOR_BGR2GRAY);
-
-        // Создаем окна
-        cv::namedWindow("Original", cv::WINDOW_AUTOSIZE);
-        cv::namedWindow("Optical Flow", cv::WINDOW_AUTOSIZE);
-
-        // Ползунки для настройки параметров оптического потока
-        cv::createTrackbar("Max Corners", "Optical Flow", &maxCorners, 500, on_trackbar);
-        cv::createTrackbar("Quality Level", "Optical Flow", nullptr, 100.0, on_trackbar);
-        cv::createTrackbar("Min Distance", "Optical Flow", nullptr, 100.0, on_trackbar);
-
-        // Обработка кадра с использованием оптического потока
-        cv::Mat flowOutput;
-        processOpticalFlow(grayPrev, grayCurr, flowOutput);
-
-        // Отображение исходного кадра и результатов оптического потока
-        cv::imshow("Original", currFrame);
-        cv::imshow("Optical Flow", flowOutput);
-
-        // Обновляем предыдущий кадр
-        grayPrev = grayCurr.clone();
+        gray.copyTo(prevGray);
     }
 
     saveOpticalFlowParams("../res/optical_flow_parameters.yaml");

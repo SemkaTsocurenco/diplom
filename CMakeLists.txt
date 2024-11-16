@@ -24,7 +24,7 @@ add_library(optic_flow SHARED libs/optic_flow.cpp)
 add_library(adaptive_binarization SHARED libs/adaptive_binarization.cpp)
 
 # Основная программа
-add_executable(diplom ./main.cpp ./libs/HSV.cpp)
+add_executable(diplom ./main.cpp  ./libs/optic_flow.cpp)
 
 # Линковка библиотек
 target_link_libraries(diplom dl)
