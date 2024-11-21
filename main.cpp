@@ -20,12 +20,12 @@ int main(int argc, char *argv[]) {
         std::cerr << "Failed to load library: " << dlerror() << "\n";
         return 1;
     }
-    func = (void (*)(std::string)) dlsym(method, "findLines");
+    func = (void (*)(const std::string)) dlsym(method, "findLines");
     if (!func) {
         std::cerr << "Failed to load function: " << dlerror() << "\n";
         return 1;
     }
-    func("/home/tsokurenkosv/Downloads/video2.mp4");
+    func("../images/");
 
 
 

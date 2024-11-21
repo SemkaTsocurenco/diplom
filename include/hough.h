@@ -1,12 +1,12 @@
-#ifndef BIRDVIEW_PROCESSOR_H
-#define BIRDVIEW_PROCESSOR_H
+#ifndef HOUGH_H
+#define HOUGH_H
 
 #include <opencv2/opencv.hpp>
 #include <string>
 
-class Ransac {
+class Hough {
 public:
-    Ransac(const std::string& imagesDir, const std::string& configPath);
+    Hough(const std::string& imagesDir, const std::string& configPath);
     void run();
 
 private:
@@ -33,10 +33,10 @@ private:
     cv::Mat InverTtransformMatrix;
     cv::Size frameSize;
 
-    // Параметры RANSAC
-    int maxTrials;
-    int distanceThreshold;
-    int minInliers;
+    // Параметры Hough
+    int Rho;
+    int Theta;
+    int Threshold;
 
     // Методы
     bool loadConfig();
@@ -49,4 +49,4 @@ private:
 
 extern "C" void findLines(std::string vidname);
 
-#endif // BIRDVIEW_PROCESSOR_H
+#endif // HOUGH_H

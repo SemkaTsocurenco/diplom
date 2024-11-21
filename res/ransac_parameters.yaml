@@ -1,20 +1,13 @@
 %YAML:1.0
 ---
-points:
-   -
-      - 361.
-      - 312.
-   -
-      - 599.
-      - 312.
-   -
-      - 1775.
-      - 618.
-   -
-      - -815.
-      - 618.
-width: 137
+xOffsettop: 103
+xOffsetdown: 1400
+topY: 306
+bottomY: 700
+width: 81
 height: 477
-maxTrials: 226
-distanceThreshold: 9
-minInliers: 169
+maxTrials: 169
+distanceThreshold: 17
+minInliers: 123
+threshold: 113
+size: 50

@@ -1,5 +1,5 @@
 #pragma once 
 
 extern "C" {
-    void findLines(std::string);
+    void findLines(const std::string);
 }

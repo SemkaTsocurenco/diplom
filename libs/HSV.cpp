@@ -1,5 +1,6 @@
 #include "../include/main.hpp"
 
+
 int h_min, h_max;
 int s_min, s_max;
 int v_min, v_max;
@@ -52,49 +53,53 @@ void processFrame(const cv::Mat& frame, cv::Mat& output) {
 
 void on_trackbar(int, void*) {}
 
-void findLines(std::string vidname){
+extern "C" void findLines(const std::string imagesDir) {
 
-    cv::Mat frame;
-    loadHSVParams ("../res/hsv_parameters.yaml");
-	cv::VideoCapture cap(vidname); // Используем камеру по умолчанию
-    if (!cap.isOpened()) {
-        std::cerr << "Ошибка: Не удалось открыть камеру!" << std::endl;
+    std::string outputDir = "../images_HSV";
+    if (!fs::exists(outputDir)) {
+        fs::create_directory(outputDir);
     }
+            cv::Mat mask;
+    int index = 0;
+    for (const auto& entry : fs::directory_iterator(imagesDir)) {
+        while (entry.is_regular_file() && entry.path().extension() == ".png") {
+            cv::Mat frame = cv::imread(entry.path().string());
+            if (frame.empty()) {
+                std::cerr << "Не удалось загрузить изображение: " << entry.path() << std::endl;
+                continue;
+            }
 
+            std::cout<< "HSV lib go on\n";
 
-    while (true) {
-        cap >> frame;
-		if (frame.empty()) {
-            std::cerr << "Ошибка: Не удалось захватить кадр!" << std::endl;
-            break;
+            // Создаем окна
+            cv::namedWindow("Original", cv::WINDOW_AUTOSIZE);
+            cv::namedWindow("Masked", cv::WINDOW_AUTOSIZE);
+
+            // Ползунки для настройки HSV
+            cv::createTrackbar("H Min", "Masked", &h_min, 180, on_trackbar);
+            cv::createTrackbar("H Max", "Masked", &h_max, 180, on_trackbar);
+            cv::createTrackbar("S Min", "Masked", &s_min, 255, on_trackbar);
+            cv::createTrackbar("S Max", "Masked", &s_max, 255, on_trackbar);
+            cv::createTrackbar("V Min", "Masked", &v_min, 255, on_trackbar);
+            cv::createTrackbar("V Max", "Masked", &v_max, 255, on_trackbar);
+            // Обработка кадра с текущими параметрами HSV
+            processFrame(frame, mask);
+
+            // Отображение исходного кадра и обработанного маскированного изображения
+            cv::imshow("Original", frame);
+            cv::imshow("Masked", mask);
+            // Сохранение результата
+
+            char key = (char)cv::waitKey(10);
+
+            if (key == 'q') {
+                break;
+            }
         }
-		if (cv::waitKey(30) == 'q') break;
-        std::cout<< "HSV lib go on\n";
-        cv::imshow("Original", frame);
+        std::string outputFilename = outputDir + "/Images_" + std::to_string(index++) + ".png";
+        cv::imwrite(outputFilename, mask);
+        cv::waitKey();
 
-        // Создаем окна
-        cv::namedWindow("Original", cv::WINDOW_AUTOSIZE);
-        cv::namedWindow("Masked", cv::WINDOW_AUTOSIZE);
-
-        // Ползунки для настройки HSV
-        cv::createTrackbar("H Min", "Masked", &h_min, 180, on_trackbar);
-        cv::createTrackbar("H Max", "Masked", &h_max, 180, on_trackbar);
-        cv::createTrackbar("S Min", "Masked", &s_min, 255, on_trackbar);
-        cv::createTrackbar("S Max", "Masked", &s_max, 255, on_trackbar);
-        cv::createTrackbar("V Min", "Masked", &v_min, 255, on_trackbar);
-        cv::createTrackbar("V Max", "Masked", &v_max, 255, on_trackbar);
-
-        cv::Mat mask;
-
-        // Обработка кадра с текущими параметрами HSV
-        processFrame(frame, mask);
-
-        // Отображение исходного кадра и обработанного маскированного изображения
-        cv::imshow("Original", frame);
-        cv::imshow("Masked", mask);
     }
-    saveHSVParams("../res/hsv_parameters.yaml");
-    cap.release();
-    cv::destroyAllWindows();
 
 }

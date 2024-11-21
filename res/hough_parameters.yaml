@@ -1,5 +1,13 @@
 %YAML:1.0
 ---
-Rho: 1
-Theta: 16
-Threshold: 217
+xOffsettop: 119
+xOffsetdown: 1048
+topY: 291
+bottomY: 474
+width: 81
+height: 477
+Rho: 2
+Theta: 50
+Threshold: 191
+threshold: 79
+size: 48

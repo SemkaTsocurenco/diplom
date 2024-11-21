@@ -1,12 +1,12 @@
 #include "../include/main.hpp"
 
 // Параметры
-int flow_threshold = 10;
-int maxCorners = 500;
-int qualityLevel = 10;
-int minDistance = 10;
-int cannyThreshold1 = 50;
-int cannyThreshold2 = 150;
+int flow_threshold;
+int maxCorners ;
+int qualityLevel;
+int minDistance;
+int cannyThreshold1;
+int cannyThreshold2 ;
 
 // Загрузка параметров из YAML файла
 void loadOpticalFlowParams(const std::string& filename) {
@@ -46,86 +46,91 @@ void saveOpticalFlowParams(const std::string& filename) {
 void on_trackbar(int, void*) {}
 
 // Метод для обнаружения дорожной разметки с использованием оптического потока
-void findLines(std::string vidname) {
-    cv::VideoCapture cap("/home/tsokurenkosv/Downloads/video2.mp4");
+void findLines(std::string imagesDir) {
 
-    if (!cap.isOpened()) {
-        std::cerr << "Ошибка: Не удалось открыть видеофайл!" << std::endl;
-        return;
-    }
-
+    int index =0;
     loadOpticalFlowParams("../res/optical_flow_parameters.yaml");
-
-    cv::Mat prevGray, gray, frame, edges;
-    cap >> frame;
+    cv::Mat frame = cv::imread("../images/Image_0.png");
+    cv::Mat prevGray, gray, edges;
+        std::string outputDir = "../images_optical_flow";
     if (frame.empty()) {
         std::cerr << "Ошибка: Не удалось захватить кадр!" << std::endl;
         return;
     }
 
+
+    // Размер исходного изображения
+    cv::Size originalSize = frame.size();
+
     // Фокусируемся на нижней части кадра
-    frame = frame(cv::Rect(0, frame.rows / 2, frame.cols, frame.rows / 2));
-    cv::cvtColor(frame, prevGray, cv::COLOR_BGR2GRAY);
+    cv::Rect roi(0, frame.rows / 2, frame.cols, frame.rows / 2);
+    cv::Mat frameROI = frame(roi);
+    cv::cvtColor(frameROI, prevGray, cv::COLOR_BGR2GRAY);
+    cv::Mat fullSizeBinary ;
+    std::string outputFilename ;
+    
+    for (const auto& entry : fs::directory_iterator(imagesDir)) {
+        while (entry.is_regular_file() && entry.path().extension() == ".png" && cv::waitKey(30) != 'q') {
+            frame = cv::imread(entry.path().string());
+            if (frame.empty()) {
+                std::cerr << "Не удалось загрузить изображение: " << entry.path() << std::endl;
+                continue;
+            }
 
-    cv::namedWindow("Optical Flow", cv::WINDOW_AUTOSIZE);
-    cv::createTrackbar("Flow Threshold", "Optical Flow", &flow_threshold, 50, on_trackbar);
-    cv::createTrackbar("maxCorners", "Optical Flow", &maxCorners, 2000, on_trackbar);
-    cv::createTrackbar("qualityLevel", "Optical Flow", &qualityLevel, 95, on_trackbar);
-    cv::createTrackbar("minDistance", "Optical Flow", &minDistance, 300, on_trackbar);
-    cv::createTrackbar("Canny Thresh 1", "Optical Flow", &cannyThreshold1, 200, on_trackbar);
-    cv::createTrackbar("Canny Thresh 2", "Optical Flow", &cannyThreshold2, 300, on_trackbar);
+            cv::namedWindow("Optical Flow", cv::WINDOW_AUTOSIZE);
+            cv::createTrackbar("Flow Threshold", "Optical Flow", &flow_threshold, 50, on_trackbar);
+            cv::createTrackbar("maxCorners", "Optical Flow", &maxCorners, 2000, on_trackbar);
+            cv::createTrackbar("qualityLevel", "Optical Flow", &qualityLevel, 95, on_trackbar);
+            cv::createTrackbar("minDistance", "Optical Flow", &minDistance, 300, on_trackbar);
+            cv::createTrackbar("Canny Thresh 1", "Optical Flow", &cannyThreshold1, 200, on_trackbar);
+            cv::createTrackbar("Canny Thresh 2", "Optical Flow", &cannyThreshold2, 300, on_trackbar);
 
-    while (true) {
-        cap >> frame;
-        if (frame.empty()) break;
+            // Фокусируемся на нижней части кадра
+            frameROI = frame(roi);
+            cv::cvtColor(frameROI, gray, cv::COLOR_BGR2GRAY);
 
-        // Фокусируемся на нижней части кадра
-        frame = frame(cv::Rect(0, frame.rows / 2, frame.cols, frame.rows / 2));
-        cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+            // Применяем фильтр Кэнни для выделения границ
+            cv::Canny(gray, edges, cannyThreshold1, cannyThreshold2);
 
-        // Применяем фильтр Кэнни для выделения границ
-        cv::Canny(gray, edges, cannyThreshold1, cannyThreshold2);
+            // Вычисление оптического потока
+            std::vector<cv::Point2f> prevPoints, currPoints;
+            std::vector<uchar> status;
+            std::vector<float> err;
+            double qualityLevelDouble = static_cast<double>(qualityLevel + 1);
 
-        // Вычисление оптического потока
-        std::vector<cv::Point2f> prevPoints, currPoints;
-        std::vector<uchar> status;
-        std::vector<float> err;
-        double qualityLevelDouble = static_cast<double>(qualityLevel + 1);
+            // Инициализация точек для отслеживания на выделенных границах
+            cv::goodFeaturesToTrack(edges, prevPoints, maxCorners, qualityLevelDouble / 100, minDistance);
+            if (prevPoints.empty()) continue;
 
-        // Инициализация точек для отслеживания на выделенных границах
-        cv::goodFeaturesToTrack(edges, prevPoints, maxCorners, qualityLevelDouble / 100, minDistance);
-        if (prevPoints.empty()) continue;
+            // Оптический поток Лукаса-Канаде
+            cv::calcOpticalFlowPyrLK(prevGray, gray, prevPoints, currPoints, status, err);
 
-        // Оптический поток Лукаса-Канаде
-        cv::calcOpticalFlowPyrLK(prevGray, gray, prevPoints, currPoints, status, err);
-
-        // Отображение потока
-        cv::Mat flowFrame = frame.clone();
-        for (size_t i = 0; i < currPoints.size(); i++) {
-            if (status[i]) {
-                double flow = cv::norm(currPoints[i] - prevPoints[i]);
-                if (flow > flow_threshold) {
-                    cv::line(flowFrame, prevPoints[i], currPoints[i], cv::Scalar(0, 255, 0), 2);
-                    cv::circle(flowFrame, currPoints[i], 3, cv::Scalar(0, 0, 255), -1);
+            // Создание бинарного изображения
+            cv::Mat binary = cv::Mat::zeros(frameROI.size(), CV_8UC1);
+            for (size_t i = 0; i < currPoints.size(); i++) {
+                if (status[i]) {
+                    double flow = cv::norm(currPoints[i] - prevPoints[i]);
+                    if (flow > flow_threshold) {
+                        // Отметка линии в бинарном изображении
+                        cv::line(binary, prevPoints[i], currPoints[i], cv::Scalar(255), 2);
+                    }
                 }
             }
+
+            // Восстановление размера изображения
+            fullSizeBinary = cv::Mat::zeros(originalSize, CV_8UC1);
+            binary.copyTo(fullSizeBinary(roi));
+
+            // Отображение результата
+            cv::imshow("Optical Flow", fullSizeBinary);
+            // Сохранение изображения
+
+            // Отображение результата
+            if (cv::waitKey(30) == 'q') break;
         }
-
-        // Объединение изображений (оптический поток и результат Кэнни)
-        cv::Mat combined;
-        cv::cvtColor(edges, edges, cv::COLOR_GRAY2BGR);  // Преобразование edges в цветное изображение
-        cv::hconcat(flowFrame, edges, combined);
-
-        // Отображение объединённого изображения
-        cv::imshow("Optical Flow", combined);
-
-        if (cv::waitKey(30) == 'q') break;
-
+        outputFilename = outputDir + "/Image_" + std::to_string(index++) + ".png";
+        cv::imwrite(outputFilename, fullSizeBinary);
         gray.copyTo(prevGray);
+        cv::waitKey();
     }
-
-    saveOpticalFlowParams("../res/optical_flow_parameters.yaml");
-    cap.release();
-    cv::destroyAllWindows();
 }
-

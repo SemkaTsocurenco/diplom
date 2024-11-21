@@ -45,45 +45,54 @@ void processAdaptiveThreshold(const cv::Mat& frame, cv::Mat& output) {
 // Функция-обработчик для ползунков
 void on_trackbar(int, void*) {}
 
-// Основная функция поиска дорожной разметки
-void findLines(std::string vidname) {
-    cv::Mat frame;
+
+
+extern "C" void findLines(const std::string imagesDir) {
     loadAdaptiveParams("../res/adaptive_parameters.yaml");
-    cv::VideoCapture cap(vidname);
 
-    if (!cap.isOpened()) {
-        std::cerr << "Ошибка: Не удалось открыть видео!" << std::endl;
-        return;
+    std::string outputDir = "../images_adaptive";
+    if (!fs::exists(outputDir)) {
+        fs::create_directory(outputDir);
     }
+            cv::Mat binary;
+    int index = 0;
+    for (const auto& entry : fs::directory_iterator(imagesDir)) {
+        while (entry.is_regular_file() && entry.path().extension() == ".png") {
+            cv::Mat frame = cv::imread(entry.path().string());
+            if (frame.empty()) {
+                std::cerr << "Не удалось загрузить изображение: " << entry.path() << std::endl;
+                continue;
+            }
 
-    while (true) {
-        cap >> frame;
-        if (frame.empty()) {
-            std::cerr << "Ошибка: Не удалось захватить кадр!" << std::endl;
-            break;
+            // Создаем окна
+            cv::namedWindow("Original", cv::WINDOW_AUTOSIZE);
+            cv::namedWindow("Adaptive Threshold", cv::WINDOW_AUTOSIZE);
+
+            // Ползунки для настройки адаптивной бинаризации
+            cv::createTrackbar("Block Size", "Adaptive Threshold", &blockSize, 101, on_trackbar);
+            cv::createTrackbar("C", "Adaptive Threshold", &C, 20, on_trackbar);
+
+            // Обработка кадра
+            if (blockSize % 2 == 0) blockSize += 1; // Размер блока должен быть нечетным
+            processAdaptiveThreshold(frame, binary);
+            binary = 255-binary;
+            // Отображение исходного кадра и результатов адаптивной бинаризации
+            // cv::imshow("Original", frame);
+            cv::imshow("Adaptive Threshold", binary);
+
+            char key = (char)cv::waitKey(10);
+
+            if (key == 'q') {
+                break;
+            }
         }
+        std::string outputFilename = outputDir + "/Images_" + std::to_string(index++) + ".png";
+        cv::imwrite(outputFilename, binary);
+        cv::waitKey();
 
-        if (cv::waitKey(30) == 'q') break;
-
-        // Создаем окна
-        cv::namedWindow("Original", cv::WINDOW_AUTOSIZE);
-        cv::namedWindow("Adaptive Threshold", cv::WINDOW_AUTOSIZE);
-
-        // Ползунки для настройки адаптивной бинаризации
-        cv::createTrackbar("Block Size", "Adaptive Threshold", &blockSize, 101, on_trackbar);
-        cv::createTrackbar("C", "Adaptive Threshold", &C, 20, on_trackbar);
-
-        // Обработка кадра
-        if (blockSize % 2 == 0) blockSize += 1; // Размер блока должен быть нечетным
-        cv::Mat binary;
-        processAdaptiveThreshold(frame, binary);
-
-        // Отображение исходного кадра и результатов адаптивной бинаризации
-        // cv::imshow("Original", frame);
-        cv::imshow("Adaptive Threshold", binary);
     }
 
-    saveAdaptiveParams("../res/adaptive_parameters.yaml");
-    cap.release();
-    cv::destroyAllWindows();
 }
+
+
+
